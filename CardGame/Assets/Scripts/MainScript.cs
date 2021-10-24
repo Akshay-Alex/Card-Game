@@ -2,28 +2,81 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using UnityEngine.UI;
 
 public class MainScript : MonoBehaviour
 {
     public GameObject CardPrefab;
-    public GameObject CurrentCard,CurrentCardFrontObject,card;
+    public GameObject CurrentCard,LastCard,CurrentCardFrontObject,card;
     public Card CurrentCardScript;
     public Renderer CurrentCardRenderer;
     public Material CardMaterial;
-    
-    int CardID = 0;
-    int[] AllowedCardNumbers = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
-    int CurrentCardNumber = 0,CurrentCardNewPosition = 0;
-    float y=0;
-    Vector3 FaceDown = new Vector3(0, 0, 180);
-    Vector3 FaceUp = new Vector3(0, 0, 0);
-    Stack<GameObject> deck = new Stack<GameObject>();
-    // Start is called before the first frame update
 
-    void AddCard(int CardNumber)
+                                                    //UI Buttons
+    public Button AddButton;
+    public Button RemoveButton;
+    public Button RevealButton;
+    public Button ShuffleButton;
+
+    public int CardID = 0;                                                          //Stores card position
+    int[] AllowedCardNumbers = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };       //Possible numbers allowed on the card front face
+    int CurrentCardNumber = 0,CurrentCardNewPosition = 0;                           //Stores the number and position of the Current card
+    float y=0;                                                                      //Used to store y co ordinate position 
+    Vector3 FaceDown = new Vector3(0, 0, 180);                                      //Stores the rotation values of a facedown card
+    //Vector3 FaceUp = new Vector3(0, 0, 0);
+    Stack<GameObject> deck = new Stack<GameObject>();                               // A stack of card GameObjects called deck
+
+    #region ButtonFunctions
+    public void NewCard()
+    {
+        CurrentCardNumber = Random.Range(1, 14);
+        AddCard(CurrentCardNumber);
+
+    }
+    public void RemoveCard()
+    {
+        if (deck.Count != 0)
+        {
+            CurrentCard = deck.Pop();
+            CardID--;
+            Destroy(CurrentCard.gameObject);
+            Debug.Log(CurrentCard);
+            //Debug.Log(CurrentCard.GetComponent<Card>().CardNumber);
+            y = (float)(y - 0.01);
+
+
+            //GameObject DestroyCard = new GameObject();
+
+            //CurrentCard = new GameObject();
+
+        }
+
+    }
+    public void RevealCard()
+    {
+        if (CurrentCard == null)
+        {
+            CurrentCard = deck.Pop();
+        }
+        StartCoroutine(RevealCardAnimation());
+        var rot = Mathf.Lerp(180, 0, 1f);
+        //CurrentCard.transform.rotation = Quaternion.Euler(0, 0, rot);
+
+
+
+    }
+
+    public void ShuffleCards()
+    {
+        StartCoroutine(ShufflePosition());
+
+    }
+    #endregion
+    void AddCard(int CardNumber)                    //takes card number as argument and creates a new card
     {
         if (deck.Count < 13)
         {
+            CardID++;
             CurrentCard = (GameObject) Instantiate(CardPrefab, new Vector3(0, y, 0), Quaternion.Euler(FaceDown));
             y = (float) (y + 0.01);
             CurrentCard.gameObject.name = "Card" + CardID;
@@ -35,49 +88,33 @@ public class MainScript : MonoBehaviour
             CurrentCardRenderer.material = CardMaterial;
             //mat[0] = Resources.Load("Materials/" + CardNumber, typeof(Material)) as Material;
             //CurrentCardFrontObject.GetComponent<MeshRenderer>().materials[0] = Resources.Load("Material/"+ CardNumber + ".mat", typeof(Material)) as Material;
-            CardID++;
             deck.Push(CurrentCard);
+            LastCard = CurrentCard;
         }
     }
-    public void NewCard()
+    
+    IEnumerator RevealCardAnimation()                                   //stores animation procedures to reveal card
     {
-        CurrentCardNumber = Random.Range(1, 14);
-        AddCard(CurrentCardNumber);
-
+        Vector3 CurrentPosition = CurrentCard.transform.position;
+        Vector3 CurrentRotation = CurrentCard.transform.eulerAngles;
+        LeanTween.move(CurrentCard, new Vector3(0, 1, 0), 2);
+        LeanTween.rotate(CurrentCard, new Vector3(90f, 320f, 90f), 2);
+        yield return new WaitForSeconds(2);
+        LeanTween.move(CurrentCard, CurrentPosition, 2);
+        LeanTween.rotate(CurrentCard, CurrentRotation, 2);
     }
-    public void RemoveCard()
-    {
-        if(deck.Count != 0)
-        {
-            CurrentCard = deck.Pop();
-            Debug.Log(CurrentCard.GetComponent<Card>().CardNumber);
-            y = (float)(y - 0.01);
-            Destroy(CurrentCard);
-            CardID--;
-        }
-       
-    }
-    public void RevealCard()
-    {
-        var rot = Mathf.Lerp(180, 0, 1f);
-        CurrentCard.transform.rotation = Quaternion.Euler(0, 0, rot);
-    }
-    public void ShuffleCards()
-    {
-        StartCoroutine(ShufflePosition());
-
-    }
-    IEnumerator ShufflePosition()
+    IEnumerator ShufflePosition()                                       //function that changes GameObject position when shuffling 
     {
         int NumberOfCards = deck.Count;
         Debug.Log(deck);
         if (NumberOfCards != 0)
         {
-            deck = Shuffle(deck);
-            int indexValue = 0;
-            foreach (GameObject card in deck)               //movexout
+            deck = Shuffle(deck);                                       
+            int indexValue = deck.Count;
+            foreach (GameObject card in deck)               
             {
                 CurrentCardNewPosition = indexValue;
+                card.gameObject.name = "Card" + indexValue;
                 if (indexValue % 2 == 0)
                 {
                     LeanTween.moveX(card,(float)(0 -  0.5*CurrentCardNewPosition), 2);
@@ -89,9 +126,10 @@ public class MainScript : MonoBehaviour
                     yield return new WaitForSeconds((float)0.1);
                 }
 
-                indexValue++;
+                indexValue--;
+                CurrentCard = card;
             }
-            indexValue = 0;
+            indexValue = deck.Count;
             yield return new WaitForSeconds(1);
             foreach (GameObject card in deck)               //moveup
             {
@@ -107,9 +145,10 @@ public class MainScript : MonoBehaviour
                     yield return new WaitForSeconds((float)0.1);
                 }
 
-                indexValue++;
+                indexValue--;
             }
-            indexValue = 0;
+            yield return new WaitForSeconds(1);
+            indexValue = deck.Count;
             foreach (GameObject card in deck)               //movex
             {
                 CurrentCardNewPosition = indexValue;
@@ -140,41 +179,37 @@ public class MainScript : MonoBehaviour
                     yield return new WaitForSeconds((float)0.1);
                 }
 
-                indexValue++;
+                indexValue--;
             }
         }
 
     }
-    public static Stack<GameObject> Shuffle<GameObject>(Stack<GameObject> stack)
+    public static Stack<GameObject> Shuffle<GameObject>(Stack<GameObject> stack)                //function that takes the deck and shuffles it randomly
     {
         return new Stack<GameObject>(stack.OrderBy(x => Random.Range(1,14)));
     }
 
-    void Start()
-    {
-        
-    }
 
     // Update is called once per frame
     void Update()
     {
-        if (Input.GetKeyDown("o"))
-        {
-            NewCard();
-        }
-
-        if (Input.GetKeyDown("s"))
-        {
-            ShuffleCards();
-
-        }
-        if (Input.GetKeyDown("l"))
-        {
-            Debug.Log(deck.Peek());
-        }
-        if (Input.GetKeyDown("p"))
-        {
-            RemoveCard();
-        }
+        //if (Input.GetKeyDown("o"))
+        //{
+        //    NewCard();
+        //}
+        //
+        //if (Input.GetKeyDown("s"))
+        //{
+        //    ShuffleCards();
+        //
+        //}
+        //if (Input.GetKeyDown("l"))
+        //{
+        //    Debug.Log(deck.Peek());
+        //}
+        //if (Input.GetKeyDown("p"))
+        //{
+        //    RemoveCard();
+        //}
     }
 }
