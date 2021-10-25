@@ -5,6 +5,7 @@ using UnityEngine;
 public class Card : MonoBehaviour
 {
      public int CardNumber;
+       public int CardUniqueID;
 
     void Start()
     {

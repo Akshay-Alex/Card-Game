@@ -7,7 +7,7 @@ using UnityEngine.UI;
 public class MainScript : MonoBehaviour
 {
     public GameObject CardPrefab;
-    public GameObject CurrentCard,LastCard,CurrentCardFrontObject,card;
+    public GameObject CurrentCard,CardToRemove,LastCard,CurrentCardFrontObject,card;
     public Card CurrentCardScript;
     public Renderer CurrentCardRenderer;
     public Material CardMaterial;
@@ -21,6 +21,7 @@ public class MainScript : MonoBehaviour
     public Button ShuffleButton;
 
     public int CardID = 0;                                                          //Stores card position
+    int CardUniqueID = 0;
     int[] AllowedCardNumbers = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };       //Possible numbers allowed on the card front face
     int CurrentCardNumber = 0,CurrentCardNewPosition = 0;                           //Stores the number and position of the Current card
     float y=0;                                                                      //Used to store y co ordinate position 
@@ -31,37 +32,30 @@ public class MainScript : MonoBehaviour
     #region UIButtonFunctions
     public void NewCard()
     {
-        DisableUIButtons();
-        CurrentCardNumber = Random.Range(1, 14);
-        AddCard(CurrentCardNumber);
+        if (deck.Count < 13)
+        {
+            DisableUIButtons();
+            CurrentCardNumber = Random.Range(1, 14);
+            AddCard(CurrentCardNumber);
+        }
 
     }
     public void RemoveCard()
     {
-        if (deck.Count != 0)
-        {
+        if(deck.Count > 0)
+        { 
             CurrentCard = deck.Pop();
-            CardID--;
             Destroy(CurrentCard.gameObject);
-            Debug.Log(CurrentCard);
-            //Debug.Log(CurrentCard.GetComponent<Card>().CardNumber);
+            CardID--;
             y = (float)(y - 0.01);
-
-
-            //GameObject DestroyCard = new GameObject();
-
-            //CurrentCard = new GameObject();
-
         }
 
     }
     public void RevealCard()
     {
+        CurrentCard = deck.Pop();
+        deck.Push(CurrentCard);
         DisableUIButtons();
-        if (CurrentCard == null)
-        {
-            CurrentCard = deck.Pop();
-        }
         StartCoroutine(RevealCardAnimation());
         //EnableUIButtons();
         //var rot = Mathf.Lerp(180, 0, 1f);
@@ -84,12 +78,14 @@ public class MainScript : MonoBehaviour
         if (deck.Count < 13)
         {
             CardID++;
+            CardUniqueID++;
             CurrentCard = (GameObject) Instantiate(CardPrefab, new Vector3(0, y, 2), Quaternion.Euler(FaceDown));
             StartCoroutine(AddCardAnimation());
             y = (float) (y + 0.01);
             CurrentCard.gameObject.name = "Card" + CardID;
             CurrentCardScript = CurrentCard.GetComponent<Card>();
             CurrentCardScript.CardNumber = CardNumber;
+            CurrentCardScript.CardUniqueID = CardUniqueID;
             CurrentCardFrontObject = CurrentCard.transform.Find("front").gameObject;
             CurrentCardRenderer = CurrentCardFrontObject.GetComponent<MeshRenderer>();
             CardMaterial = Resources.Load("Materials/" + CardNumber, typeof(Material)) as Material;
@@ -97,7 +93,7 @@ public class MainScript : MonoBehaviour
             //mat[0] = Resources.Load("Materials/" + CardNumber, typeof(Material)) as Material;
             //CurrentCardFrontObject.GetComponent<MeshRenderer>().materials[0] = Resources.Load("Material/"+ CardNumber + ".mat", typeof(Material)) as Material;
             deck.Push(CurrentCard);
-            LastCard = CurrentCard;
+            //LastCard = CurrentCard;
         }
     }
     IEnumerator AddCardAnimation()
@@ -121,35 +117,40 @@ public class MainScript : MonoBehaviour
         yield return new WaitForSeconds(1);
         EnableUIButtons();
     }
-    IEnumerator ShufflePosition()                                       //function that changes GameObject position when shuffling 
+    IEnumerator ShufflePosition()                                       //function that changes order of cards in both 3d space and deck
     {
         int NumberOfCards = deck.Count;
         Debug.Log(deck);
         if (NumberOfCards != 0)
         {
-            deck = Shuffle(deck);                                       
+            deck = Shuffle(deck);                                       //function to shuffle the deck gameObjects                           
             int indexValue = deck.Count;
-            foreach (GameObject card in deck)               
+            int TotalCards = deck.Count;
+
+            foreach (GameObject card in deck)                           //start of shuffle animation
             {
+                if(indexValue == TotalCards)
+                {
+                    CurrentCard = card;
+                }
                 CurrentCardNewPosition = indexValue - 1;
                 card.gameObject.name = "Card" + indexValue;
-                if (indexValue % 2 == 0)
+                if (indexValue % 2 == 0)                                                    //moving half of the cards left, and the other half to the right
                 {
-                    LeanTween.moveX(card,(float)(0 -  0.5*CurrentCardNewPosition), 1);
+                    LeanTween.moveX(card,(float)(0 -  0.7*CurrentCardNewPosition), 1);
                     yield return new WaitForSeconds((float)0.1);
                 }
                 else
                 {
-                    LeanTween.moveX(card, (float)(0 + 0.5 * CurrentCardNewPosition), 1);
+                    LeanTween.moveX(card, (float)(0 + 0.7 * CurrentCardNewPosition), 1);
                     yield return new WaitForSeconds((float)0.1);
                 }
 
                 indexValue--;
-                CurrentCard = card;
             }
             indexValue = deck.Count;
             yield return new WaitForSeconds(1);
-            foreach (GameObject card in deck)               //moveup
+            foreach (GameObject card in deck)                                                   //moving the cards up  
             {
                 CurrentCardNewPosition = indexValue - 1;
                 if (indexValue % 2 == 0)
@@ -167,7 +168,7 @@ public class MainScript : MonoBehaviour
             }
             yield return new WaitForSeconds(1);
             indexValue = deck.Count;
-            foreach (GameObject card in deck)               //movex
+            foreach (GameObject card in deck)                                                   //merging the cards on the left with the cards on the right
             {
                 CurrentCardNewPosition = indexValue - 1;
                 if (indexValue % 2 == 0)
@@ -183,7 +184,7 @@ public class MainScript : MonoBehaviour
                 Debug.Log(deck);
             }
             yield return new WaitForSeconds(1);
-            foreach (GameObject card in deck)
+            foreach (GameObject card in deck)                                                   //returning the cards to the table
             {
                 CurrentCardNewPosition = indexValue - 1;
                 if (indexValue % 2 == 0)
@@ -199,7 +200,7 @@ public class MainScript : MonoBehaviour
 
                 indexValue--;
             }
-            audioSource.Play();
+            audioSource.Play();                                                                                     //playing the card shuffle audio
             yield return new WaitForSeconds(1);
             EnableUIButtons();
         }
@@ -209,14 +210,14 @@ public class MainScript : MonoBehaviour
     {
         return new Stack<GameObject>(stack.OrderBy(x => Random.Range(1,14)));
     }
-    void DisableUIButtons()
+    void DisableUIButtons()                                                     //used to disable UI buttons so that user does not interrupt animation
     {
         AddButton.enabled = false;
         RemoveButton.enabled = false;
         RevealButton.enabled = false;
         ShuffleButton.enabled = false;
     }
-    void EnableUIButtons()
+    void EnableUIButtons()                                                       //used to enable UI buttons 
     {
         AddButton.enabled = true;
         RemoveButton.enabled = true;
@@ -228,25 +229,5 @@ public class MainScript : MonoBehaviour
         audioSource = GetComponent<AudioSource>();
     }
     // Update is called once per frame
-    void Update()
-    {
-        //if (Input.GetKeyDown("o"))
-        //{
-        //    NewCard();
-        //}
-        //
-        //if (Input.GetKeyDown("s"))
-        //{
-        //    ShuffleCards();
-        //
-        //}
-        //if (Input.GetKeyDown("l"))
-        //{
-        //    Debug.Log(deck.Peek());
-        //}
-        //if (Input.GetKeyDown("p"))
-        //{
-        //    RemoveCard();
-        //}
-    }
+    
 }
