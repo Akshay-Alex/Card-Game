@@ -3,16 +3,18 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using UnityEngine.UI;
+using TMPro;
 
 public class MainScript : MonoBehaviour
 {
     public GameObject CardPrefab;
-    public GameObject CurrentCard,CardToRemove,LastCard,CurrentCardFrontObject,card;
+    public GameObject CurrentCard,CurrentCardFrontObject,card;
     public Card CurrentCardScript;
     public Renderer CurrentCardRenderer;
     public Material CardMaterial;
-    private AudioSource audioSource;
-    public AudioClip sound;
+    private AudioSource audioSource;                                                // Used to play audio
+    public AudioClip RemoveSound,NewCardSound,ShuffleSound,RevealSound;             //stores different audio clips
+    public TextMeshProUGUI Warning;
 
     //UI Buttons
     public Button AddButton;
@@ -20,8 +22,7 @@ public class MainScript : MonoBehaviour
     public Button RevealButton;
     public Button ShuffleButton;
 
-    public int CardID = 0;                                                          //Stores card position
-    int CardUniqueID = 0;
+    public int CardID = 0;                                                          //Stores card position               
     int[] AllowedCardNumbers = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };       //Possible numbers allowed on the card front face
     int CurrentCardNumber = 0,CurrentCardNewPosition = 0;                           //Stores the number and position of the Current card
     float y=0;                                                                      //Used to store y co ordinate position 
@@ -32,20 +33,30 @@ public class MainScript : MonoBehaviour
     #region UIButtonFunctions
     public void NewCard()
     {
+        if (deck.Count >= 13)
+        {
+            StartCoroutine(ShowWarningTextCountIsMax());
+        }
         if (deck.Count < 13)
         {
             DisableUIButtons();
-            CurrentCardNumber = Random.Range(1, 14);
+            CurrentCardNumber = Random.Range(1, 14);                //generating random card number
             AddCard(CurrentCardNumber);
         }
 
     }
     public void RemoveCard()
     {
-        if(deck.Count > 0)
-        { 
+        if (deck.Count <= 0)
+        {
+            StartCoroutine(ShowWarningTextCountIsZero());
+        }
+        
+        if (deck.Count > 0)
+        {
+            DisableUIButtons();
             CurrentCard = deck.Pop();
-            Destroy(CurrentCard.gameObject);
+            StartCoroutine(RemoveCardAnimation());
             CardID--;
             y = (float)(y - 0.01);
         }
@@ -53,62 +64,67 @@ public class MainScript : MonoBehaviour
     }
     public void RevealCard()
     {
-        CurrentCard = deck.Pop();
-        deck.Push(CurrentCard);
-        DisableUIButtons();
-        StartCoroutine(RevealCardAnimation());
-        //EnableUIButtons();
-        //var rot = Mathf.Lerp(180, 0, 1f);
-        //CurrentCard.transform.rotation = Quaternion.Euler(0, 0, rot);
-
-
-
+        if (deck.Count <= 0)
+        {
+            StartCoroutine(ShowWarningTextCountIsZero());
+        }
+        if (deck.Count > 0)
+        {
+            CurrentCard = deck.Pop();
+            deck.Push(CurrentCard);
+            DisableUIButtons();
+            StartCoroutine(RevealCardAnimation());
+        }
     }
 
     public void ShuffleCards()
     {
+        if(deck.Count == 0)
+        {
+            StartCoroutine(ShowWarningTextCountIsZero());
+        }
+        if (deck.Count == 1)
+        {
+            StartCoroutine(ShowWarningTextCountIsOne());
+        }
+        if (deck.Count > 1)
+        { 
         DisableUIButtons();
         StartCoroutine(ShufflePosition());
-        
+        }
 
     }
     #endregion
-    void AddCard(int CardNumber)                    //takes card number as argument and creates a new card
-    {
-        if (deck.Count < 13)
-        {
-            CardID++;
-            CardUniqueID++;
-            CurrentCard = (GameObject) Instantiate(CardPrefab, new Vector3(0, y, 2), Quaternion.Euler(FaceDown));
-            StartCoroutine(AddCardAnimation());
-            y = (float) (y + 0.01);
-            CurrentCard.gameObject.name = "Card" + CardID;
-            CurrentCardScript = CurrentCard.GetComponent<Card>();
-            CurrentCardScript.CardNumber = CardNumber;
-            CurrentCardScript.CardUniqueID = CardUniqueID;
-            CurrentCardFrontObject = CurrentCard.transform.Find("front").gameObject;
-            CurrentCardRenderer = CurrentCardFrontObject.GetComponent<MeshRenderer>();
-            CardMaterial = Resources.Load("Materials/" + CardNumber, typeof(Material)) as Material;
-            CurrentCardRenderer.material = CardMaterial;
-            //mat[0] = Resources.Load("Materials/" + CardNumber, typeof(Material)) as Material;
-            //CurrentCardFrontObject.GetComponent<MeshRenderer>().materials[0] = Resources.Load("Material/"+ CardNumber + ".mat", typeof(Material)) as Material;
-            deck.Push(CurrentCard);
-            //LastCard = CurrentCard;
-        }
-    }
+    
+
+    #region Animations
     IEnumerator AddCardAnimation()
     {
-        LeanTween.move(CurrentCard, new Vector3(0, y, 0), 1);
-        yield return new WaitForSeconds(1);
+        audioSource.clip = NewCardSound;
+        audioSource.Play();
+        LeanTween.move(CurrentCard, new Vector3(0, y, 0), 0.5f);
+        yield return new WaitForSeconds(0.5f);
         EnableUIButtons();
+
     }
-    
+    IEnumerator RemoveCardAnimation()
+    {
+        audioSource.clip = RemoveSound;
+        audioSource.Play();
+        LeanTween.move(CurrentCard, new Vector3(100, 20, 0), 1);
+        yield return new WaitForSeconds(1);
+        Destroy(CurrentCard.gameObject);
+        EnableUIButtons();
+
+    }
     IEnumerator RevealCardAnimation()                                   //stores animation procedures to reveal card
     {
         Vector3 CurrentPosition = CurrentCard.transform.position;
         Vector3 CurrentRotation = CurrentCard.transform.eulerAngles;
         LeanTween.move(CurrentCard, new Vector3(0, 1, 0), 1);
         yield return new WaitForSeconds(1);
+        audioSource.clip = RevealSound;
+        audioSource.Play();
         LeanTween.rotate(CurrentCard, new Vector3(90f, 320f, 90f), 2);
         yield return new WaitForSeconds(2);
         LeanTween.rotate(CurrentCard, CurrentRotation, 1);
@@ -200,11 +216,57 @@ public class MainScript : MonoBehaviour
 
                 indexValue--;
             }
+            audioSource.clip = ShuffleSound;
             audioSource.Play();                                                                                     //playing the card shuffle audio
             yield return new WaitForSeconds(1);
             EnableUIButtons();
         }
 
+    }
+    #endregion
+
+    #region WarningText
+    IEnumerator ShowWarningTextCountIsZero()
+    {
+        Warning.enabled = true;
+        Warning.text = "No Cards left";
+        yield return new WaitForSeconds(2);
+        Warning.enabled = false;
+    }
+    IEnumerator ShowWarningTextCountIsOne()
+    {
+        Warning.enabled = true;
+        Warning.text = "Cannot shuffle a single card";
+        yield return new WaitForSeconds(2);
+        Warning.enabled = false;
+    }
+    IEnumerator ShowWarningTextCountIsMax()
+    {
+        Warning.enabled = true;
+        Warning.text = "Max number of cards reached";
+        yield return new WaitForSeconds(2);
+        Warning.enabled = false;
+    }
+
+    #endregion
+
+    void AddCard(int CardNumber)                    //takes card number as argument and creates a new card
+    {
+        if (deck.Count < 13)
+        {
+            CardID++;
+            CurrentCard = (GameObject)Instantiate(CardPrefab, new Vector3(0, y, 2), Quaternion.Euler(FaceDown));
+            StartCoroutine(AddCardAnimation());
+            y = (float)(y + 0.01);
+            CurrentCard.gameObject.name = "Card" + CardID;
+            CurrentCardScript = CurrentCard.GetComponent<Card>();
+            CurrentCardScript.CardNumber = CardNumber;
+            CurrentCardFrontObject = CurrentCard.transform.Find("front").gameObject;
+            CurrentCardRenderer = CurrentCardFrontObject.GetComponent<MeshRenderer>();
+            CardMaterial = Resources.Load("Materials/" + CardNumber, typeof(Material)) as Material;
+            CurrentCardRenderer.material = CardMaterial;
+            deck.Push(CurrentCard);
+        }
     }
     public static Stack<GameObject> Shuffle<GameObject>(Stack<GameObject> stack)                //function that takes the deck and shuffles it randomly
     {
@@ -227,6 +289,7 @@ public class MainScript : MonoBehaviour
     private void Awake()
     {
         audioSource = GetComponent<AudioSource>();
+        Warning.enabled = false;
     }
     // Update is called once per frame
     
