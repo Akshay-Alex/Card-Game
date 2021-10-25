@@ -11,8 +11,10 @@ public class MainScript : MonoBehaviour
     public Card CurrentCardScript;
     public Renderer CurrentCardRenderer;
     public Material CardMaterial;
+    private AudioSource audioSource;
+    public AudioClip sound;
 
-                                                    //UI Buttons
+    //UI Buttons
     public Button AddButton;
     public Button RemoveButton;
     public Button RevealButton;
@@ -26,9 +28,10 @@ public class MainScript : MonoBehaviour
     //Vector3 FaceUp = new Vector3(0, 0, 0);
     Stack<GameObject> deck = new Stack<GameObject>();                               // A stack of card GameObjects called deck
 
-    #region ButtonFunctions
+    #region UIButtonFunctions
     public void NewCard()
     {
+        DisableUIButtons();
         CurrentCardNumber = Random.Range(1, 14);
         AddCard(CurrentCardNumber);
 
@@ -54,12 +57,14 @@ public class MainScript : MonoBehaviour
     }
     public void RevealCard()
     {
+        DisableUIButtons();
         if (CurrentCard == null)
         {
             CurrentCard = deck.Pop();
         }
         StartCoroutine(RevealCardAnimation());
-        var rot = Mathf.Lerp(180, 0, 1f);
+        //EnableUIButtons();
+        //var rot = Mathf.Lerp(180, 0, 1f);
         //CurrentCard.transform.rotation = Quaternion.Euler(0, 0, rot);
 
 
@@ -68,7 +73,9 @@ public class MainScript : MonoBehaviour
 
     public void ShuffleCards()
     {
+        DisableUIButtons();
         StartCoroutine(ShufflePosition());
+        
 
     }
     #endregion
@@ -77,7 +84,8 @@ public class MainScript : MonoBehaviour
         if (deck.Count < 13)
         {
             CardID++;
-            CurrentCard = (GameObject) Instantiate(CardPrefab, new Vector3(0, y, 0), Quaternion.Euler(FaceDown));
+            CurrentCard = (GameObject) Instantiate(CardPrefab, new Vector3(0, y, 2), Quaternion.Euler(FaceDown));
+            StartCoroutine(AddCardAnimation());
             y = (float) (y + 0.01);
             CurrentCard.gameObject.name = "Card" + CardID;
             CurrentCardScript = CurrentCard.GetComponent<Card>();
@@ -92,16 +100,26 @@ public class MainScript : MonoBehaviour
             LastCard = CurrentCard;
         }
     }
+    IEnumerator AddCardAnimation()
+    {
+        LeanTween.move(CurrentCard, new Vector3(0, y, 0), 1);
+        yield return new WaitForSeconds(1);
+        EnableUIButtons();
+    }
     
     IEnumerator RevealCardAnimation()                                   //stores animation procedures to reveal card
     {
         Vector3 CurrentPosition = CurrentCard.transform.position;
         Vector3 CurrentRotation = CurrentCard.transform.eulerAngles;
-        LeanTween.move(CurrentCard, new Vector3(0, 1, 0), 2);
+        LeanTween.move(CurrentCard, new Vector3(0, 1, 0), 1);
+        yield return new WaitForSeconds(1);
         LeanTween.rotate(CurrentCard, new Vector3(90f, 320f, 90f), 2);
         yield return new WaitForSeconds(2);
-        LeanTween.move(CurrentCard, CurrentPosition, 2);
-        LeanTween.rotate(CurrentCard, CurrentRotation, 2);
+        LeanTween.rotate(CurrentCard, CurrentRotation, 1);
+        yield return new WaitForSeconds(1);
+        LeanTween.move(CurrentCard, CurrentPosition, 1);
+        yield return new WaitForSeconds(1);
+        EnableUIButtons();
     }
     IEnumerator ShufflePosition()                                       //function that changes GameObject position when shuffling 
     {
@@ -113,16 +131,16 @@ public class MainScript : MonoBehaviour
             int indexValue = deck.Count;
             foreach (GameObject card in deck)               
             {
-                CurrentCardNewPosition = indexValue;
+                CurrentCardNewPosition = indexValue - 1;
                 card.gameObject.name = "Card" + indexValue;
                 if (indexValue % 2 == 0)
                 {
-                    LeanTween.moveX(card,(float)(0 -  0.5*CurrentCardNewPosition), 2);
+                    LeanTween.moveX(card,(float)(0 -  0.5*CurrentCardNewPosition), 1);
                     yield return new WaitForSeconds((float)0.1);
                 }
                 else
                 {
-                    LeanTween.moveX(card, (float)(0 + 0.5 * CurrentCardNewPosition), 2);
+                    LeanTween.moveX(card, (float)(0 + 0.5 * CurrentCardNewPosition), 1);
                     yield return new WaitForSeconds((float)0.1);
                 }
 
@@ -133,15 +151,15 @@ public class MainScript : MonoBehaviour
             yield return new WaitForSeconds(1);
             foreach (GameObject card in deck)               //moveup
             {
-                CurrentCardNewPosition = indexValue;
+                CurrentCardNewPosition = indexValue - 1;
                 if (indexValue % 2 == 0)
                 {                   
-                    LeanTween.move(card, new Vector3(-1, CurrentCardNewPosition, 0), 2);
+                    LeanTween.move(card, new Vector3(-1, CurrentCardNewPosition, 0), 1);
                     yield return new WaitForSeconds((float)0.1);    
                 }
                 else
                 {
-                    LeanTween.move(card, new Vector3(1, CurrentCardNewPosition, 0), 2);
+                    LeanTween.move(card, new Vector3(1, CurrentCardNewPosition, 0), 1);
                     yield return new WaitForSeconds((float)0.1);
                 }
 
@@ -151,15 +169,15 @@ public class MainScript : MonoBehaviour
             indexValue = deck.Count;
             foreach (GameObject card in deck)               //movex
             {
-                CurrentCardNewPosition = indexValue;
+                CurrentCardNewPosition = indexValue - 1;
                 if (indexValue % 2 == 0)
                 {
-                    LeanTween.moveX(card, 0, 2);
+                    LeanTween.moveX(card, 0, 1);
                     yield return new WaitForSeconds((float)0.1);
                 }
                 else
                 {
-                    LeanTween.moveX(card, 0, 2);
+                    LeanTween.moveX(card, 0, 1);
                     yield return new WaitForSeconds((float)0.1);
                 }
                 Debug.Log(deck);
@@ -167,20 +185,23 @@ public class MainScript : MonoBehaviour
             yield return new WaitForSeconds(1);
             foreach (GameObject card in deck)
             {
-                CurrentCardNewPosition = indexValue;
+                CurrentCardNewPosition = indexValue - 1;
                 if (indexValue % 2 == 0)
                 {
-                    LeanTween.move(card, new Vector3(0,(float) (0.01*CurrentCardNewPosition), 0), 2);
+                    LeanTween.move(card, new Vector3(0,(float) (0.01*CurrentCardNewPosition), 0), 1);
                     yield return new WaitForSeconds((float)0.1);
                 }
                 else
                 {
-                    LeanTween.move(card, new Vector3(0, (float)(0.01 * CurrentCardNewPosition), 0), 2);
+                    LeanTween.move(card, new Vector3(0, (float)(0.01 * CurrentCardNewPosition), 0), 1);
                     yield return new WaitForSeconds((float)0.1);
                 }
 
                 indexValue--;
             }
+            audioSource.Play();
+            yield return new WaitForSeconds(1);
+            EnableUIButtons();
         }
 
     }
@@ -188,8 +209,24 @@ public class MainScript : MonoBehaviour
     {
         return new Stack<GameObject>(stack.OrderBy(x => Random.Range(1,14)));
     }
-
-
+    void DisableUIButtons()
+    {
+        AddButton.enabled = false;
+        RemoveButton.enabled = false;
+        RevealButton.enabled = false;
+        ShuffleButton.enabled = false;
+    }
+    void EnableUIButtons()
+    {
+        AddButton.enabled = true;
+        RemoveButton.enabled = true;
+        RevealButton.enabled = true;
+        ShuffleButton.enabled = true;
+    }
+    private void Awake()
+    {
+        audioSource = GetComponent<AudioSource>();
+    }
     // Update is called once per frame
     void Update()
     {
